@@ -129,7 +129,7 @@ const createChart = (arr) => {
         }
     })
     .setWidth(800)
-    .setHeight(400)
+    .setHeight(300)
     .setBackgroundColor('transparent');
 
     return myChart.getUrl();
