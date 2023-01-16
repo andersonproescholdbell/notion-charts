@@ -33,11 +33,21 @@ const getChildBlocks = async (pageId) => {
 }
 
 const getData = async () => {
-    const filter = { 
-        property: "Status",
-        select : {
-            does_not_equal: "Done"
-        }
+    const filter = {
+        and: [
+            { 
+                property: "Status",
+                select : {
+                    does_not_equal: "Done"
+                }
+            },
+            {
+                property: "Hours",
+                number: {
+                    greater_than: 0
+                }
+            }
+        ]
     };
 
     return await queryDatabase(databaseId, filter);
@@ -51,29 +61,27 @@ const calcWork = (data, cats) => {
         arrs.push(Array(numDays).fill(0));
     }
 
-    // add: if no start just use date.now()
+    // our data filter means we only get data where hours is filled out
     for (var i of data) {
-        // change these conditions eventually
-        if (i.properties.Start.date) {
-            let now = Math.floor(Date.now() / 1000);
-            let start = Math.floor((new Date(i.properties.Start.date.start)).valueOf() / 1000);
-            // if there is no finish date, finish is assigned to the start day
-            let finish = (i.properties.Finish.date) ? Math.floor((new Date(i.properties.Finish.date.start)).valueOf() / 1000) : now;
+        let now = Math.floor(Date.now() / 1000);
+        // if there is no finish date, finish is assigned to the start day
+        let start = (i.properties.Start.date) ? Math.floor((new Date(i.properties.Start.date.start)).valueOf() / 1000) : now;
+        // if there is no finish date, finish is assigned to the start day
+        let finish = (i.properties.Finish.date) ? Math.floor((new Date(i.properties.Finish.date.start)).valueOf() / 1000) : now;
 
-            // if start was before now
-            if (now >= start) start = now;
-            // if finish was before now
-            if (now >= finish) finish = now;
+        // if start was before now
+        if (now >= start) start = now;
+        // if finish was before now
+        if (now >= finish) finish = now;
 
-            let days = Math.ceil( (finish - start) / (86400) ) + 1;
-            let hoursPerDay = Math.round( (i.properties.Hours.number / days) * 100 ) / 100;
+        let days = Math.ceil( (finish - start) / (86400) ) + 1;
+        let hoursPerDay = Math.round( (i.properties.Hours.number / days) * 100 ) / 100;
 
-            let firstDay = Math.ceil( (start - now) / 86400);
+        let firstDay = Math.ceil( (start - now) / 86400);
 
-            for (var x = firstDay; x < firstDay+days && x < numDays; x++) {
-                // anything without a category gets put into "Other"
-                arrs[(i.properties.Category.select) ? cats[i.properties.Category.select.name].order : cats['Other'].order][x] += hoursPerDay;
-            }
+        for (var x = firstDay; x < firstDay+days && x < numDays; x++) {
+            // anything without a category gets put into "Other"
+            arrs[(i.properties.Category.select) ? cats[i.properties.Category.select.name].order : cats['Other'].order][x] += hoursPerDay;
         }
     }
 
@@ -124,7 +132,7 @@ const createChart = (sets) => {
                         },
                         ticks: {
                             min: 0,
-                            max: 8
+                            max: 10
                         },
                         stacked: true
                     }
