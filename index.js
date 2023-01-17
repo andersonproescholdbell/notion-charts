@@ -53,6 +53,12 @@ const getData = async () => {
     return await queryDatabase(databaseId, filter);
 }
 
+const getDay = (d) => {
+    d.setUTCHours(d.getUTCHours() - 5);
+    d.setUTCHours(0, 0, 0, 0);
+    return d;
+}
+
 const calcWork = (data, cats) => {
     // place to store hours of work for the next numDays days
     let arrs = [];
@@ -61,24 +67,24 @@ const calcWork = (data, cats) => {
         arrs.push(Array(numDays).fill(0));
     }
 
+    let today = getDay(new Date());
+
     // our data filter means we only get data where hours is filled out
     for (var i of data) {
-        let now = Math.floor(Date.now() / 1000);
+        // if there is no start date, start is assigned to today
+        let start = (i.properties.Start.date) ? new Date(i.properties.Start.date.start) : today;
         // if there is no finish date, finish is assigned to the start day
-        let start = (i.properties.Start.date) ? Math.floor((new Date(i.properties.Start.date.start)).valueOf() / 1000) : now;
-        // if there is no finish date, finish is assigned to the start day
-        let finish = (i.properties.Finish.date) ? Math.floor((new Date(i.properties.Finish.date.start)).valueOf() / 1000) : now;
-
-        // if start was before now
-        if (now >= start) start = now;
-        // if finish was before now
-        if (now >= finish) finish = now;
-
-        let days = Math.ceil( (finish - start) / (86400) ) + 1;
+        let finish = (i.properties.Finish.date) ? new Date(i.properties.Finish.date.start) : start;
+    
+        // if start was before today make it today
+        if (today >= start) start = today;
+        // if finish was before today make it today
+        if (today >= finish) finish = today;
+        
+        let firstDay = Math.round( (start - today) / 86400000);
+        let days = Math.round( (finish - start) / 86400000 ) + 1;
         let hoursPerDay = Math.round( (i.properties.Hours.number / days) * 100 ) / 100;
-
-        let firstDay = Math.ceil( (start - now) / 86400);
-
+        
         for (var x = firstDay; x < firstDay+days && x < numDays; x++) {
             // anything without a category gets put into "Other"
             arrs[(i.properties.Category.select) ? cats[i.properties.Category.select.name].order : cats['Other'].order][x] += hoursPerDay;
@@ -218,7 +224,7 @@ exports.handler = async (event) => {
 }
 
 // uncomment this to run locally
-// exports.handler();
+exports.handler();
 
 // https://www.youtube.com/watch?v=aDqxCYRDQNI
 // https://www.youtube.com/watch?v=RfbUOglbuLc
