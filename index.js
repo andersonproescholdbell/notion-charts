@@ -215,7 +215,7 @@ exports.handler = async (event) => {
     const cats = await getCategories(data);
     const work = calcWork(data, cats.cats);
     const dataSets = createDataSets(work.arrs, cats.catArr);
-    const chartUrl = createChart(dataSets, Math.ceil(work.max/4)*4);
+    const chartUrl = createChart(dataSets, Math.max(Math.ceil(work.max/4)*4, 4));
     const block = await getBlock(pageId);
 
     if (block.url != chartUrl) {
