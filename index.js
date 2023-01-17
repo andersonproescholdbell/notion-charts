@@ -178,6 +178,18 @@ const replaceChart = async (id, url) => {
     });
 }
 
+function toHex(color) {
+    var colors = {
+        "blue":"#28456c", 
+        "default":"#373737",
+        "green":"#2b593f",
+        "purple":"#492f64",
+        "red":"#6e3630"
+    };
+
+    return colors[color];
+}
+
 const getCategories = async () => {
     const res = await notion.databases.retrieve({
         database_id: databaseId
@@ -187,7 +199,8 @@ const getCategories = async () => {
     let catArr = [];
 
     for (var x of res.properties.Category.select.options) {
-        cats[x.name] = { color: (x.color == 'default') ? 'gray' : x.color, order: Object.keys(cats).length };
+        console.log(x)
+        cats[x.name] = { color: toHex(x.color), order: Object.keys(cats).length };
         catArr.push(cats[x.name]);
     }
     
