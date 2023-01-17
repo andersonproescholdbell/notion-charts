@@ -62,6 +62,7 @@ const getDay = (d) => {
 const calcWork = (data, cats) => {
     // place to store hours of work for the next numDays days
     let arrs = [];
+    let total = Array(numDays).fill(0);
     
     for (var i = 0; i < Object.keys(cats).length; i++) {
         arrs.push(Array(numDays).fill(0));
@@ -88,10 +89,11 @@ const calcWork = (data, cats) => {
         for (var x = firstDay; x < firstDay+days && x < numDays; x++) {
             // anything without a category gets put into "Other"
             arrs[(i.properties.Category.select) ? cats[i.properties.Category.select.name].order : cats['Other'].order][x] += hoursPerDay;
+            total[x] += hoursPerDay;
         }
     }
 
-    return arrs;
+    return { arrs: arrs, max: Math.max(...total) };
 }
 
 const makeLabel = () => {
@@ -104,7 +106,7 @@ const makeLabel = () => {
     return arr;
 }
 
-const createChart = (sets) => {
+const createChart = (sets, m) => {
     const myChart = new QuickChart();
     myChart.setConfig({
         type: 'bar',
@@ -138,7 +140,8 @@ const createChart = (sets) => {
                         },
                         ticks: {
                             min: 0,
-                            max: 10
+                            max: m,
+                            stepSize: 1
                         },
                         stacked: true
                     }
@@ -210,9 +213,9 @@ const createDataSets = (arrs, cats) => {
 exports.handler = async (event) => {
     const data = await getData();
     const cats = await getCategories(data);
-    const arrs = calcWork(data, cats.cats);
-    const dataSets = createDataSets(arrs, cats.catArr);
-    const chartUrl = createChart(dataSets);
+    const work = calcWork(data, cats.cats);
+    const dataSets = createDataSets(work.arrs, cats.catArr);
+    const chartUrl = createChart(dataSets, Math.ceil(work.max/4)*4);
     const block = await getBlock(pageId);
 
     if (block.url != chartUrl) {
