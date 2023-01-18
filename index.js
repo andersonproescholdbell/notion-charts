@@ -96,12 +96,22 @@ const calcWork = (data, cats) => {
     return { arrs: arrs, max: Math.max(...total) };
 }
 
-const makeLabel = () => {
-    const w = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    let d = (new Date()).getDay();
+const getMonthDay = (day) => {
+    return (day.getMonth()+1) + "/" + (day.getDate()+1);
+}
 
-    let arr = ['Tdy', 'Tmw', w[(d+2)%7], w[(d+3)%7], w[(d+4)%7], w[(d+5)%7], w[(d+6)%7], w[(d+7)%7],
-               w[(d+8)%7], w[(d+9)%7], w[(d+10)%7], w[(d+11)%7], w[(d+12)%7], w[(d+13)%7]]
+const makeLabel = () => {
+    const w = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    let arr = [];
+
+    let day = (getDay(new Date()));
+    arr.push('Tdy\n' + getMonthDay(day))
+    day.setDate(day.getDate() + 1);
+    arr.push('Tmw\n' + getMonthDay(day))
+    for (var i = 0; i < numDays-2; i++) {
+        day.setDate(day.getDate() + 1);
+        arr.push(w[(day.getDay())%7] + '\n' + getMonthDay(day));
+    }
 
     return arr;
 }
@@ -117,6 +127,11 @@ const createChart = (sets, m) => {
         options: {
             legend: {
                 display: false
+            },
+            layout: {
+                padding: {
+                    bottom: 6
+                }
             },
             scales: {
                 xAxes: [
@@ -239,4 +254,4 @@ exports.handler = async (event) => {
 }
 
 // uncomment this to run locally
-// exports.handler();
+exports.handler();
