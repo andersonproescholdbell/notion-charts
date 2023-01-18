@@ -97,20 +97,22 @@ const calcWork = (data, cats) => {
 }
 
 const getMonthDay = (day) => {
-    return (day.getMonth()+1) + "/" + (day.getDate()+1);
+    let m = day.getMonth() + 1;
+    let d = day.getDate();
+    return m + "/" + d;
 }
 
 const makeLabel = () => {
-    const w = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const w = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     let arr = [];
 
     let day = (getDay(new Date()));
-    arr.push('Tdy\n' + getMonthDay(day))
+    arr.push('Tdy\n' + getMonthDay(day));
     day.setDate(day.getDate() + 1);
     arr.push('Tmw\n' + getMonthDay(day))
     for (var i = 0; i < numDays-2; i++) {
         day.setDate(day.getDate() + 1);
-        arr.push(w[(day.getDay())%7] + '\n' + getMonthDay(day));
+        arr.push(w[day.getDay()] + '\n' + getMonthDay(day));
     }
 
     return arr;
@@ -254,4 +256,4 @@ exports.handler = async (event) => {
 }
 
 // uncomment this to run locally
-exports.handler();
+// exports.handler();
