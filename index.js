@@ -240,9 +240,3 @@ exports.handler = async (event) => {
 
 // uncomment this to run locally
 // exports.handler();
-
-// https://www.youtube.com/watch?v=aDqxCYRDQNI
-// https://www.youtube.com/watch?v=RfbUOglbuLc
-
-// zip -r9q deploy.zip .
-// then upload as zip to aws lambda
