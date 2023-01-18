@@ -20,25 +20,13 @@ const queryDatabase = async (databaseId, f) => {
     }
 }
 
-const getChildBlocks = async (pageId) => {
-    try {
-        const response = await notion.blocks.children.list({
-            block_id: pageId,
-            page_size: 50,
-          });
-        return response.results;
-    } catch (error){
-        console.log(error.body);
-    }
-}
-
 const getData = async () => {
     const filter = {
         and: [
             { 
-                property: "Status",
-                select : {
-                    does_not_equal: "Done"
+                property: "Completed",
+                checkbox: {
+                    equals: false
                 }
             },
             {
@@ -51,6 +39,18 @@ const getData = async () => {
     };
 
     return await queryDatabase(databaseId, filter);
+}
+
+const getChildBlocks = async (pageId) => {
+    try {
+        const response = await notion.blocks.children.list({
+            block_id: pageId,
+            page_size: 50,
+          });
+        return response.results;
+    } catch (error){
+        console.log(error.body);
+    }
 }
 
 const getDay = (d) => {
@@ -199,7 +199,6 @@ const getCategories = async () => {
     let catArr = [];
 
     for (var x of res.properties.Category.select.options) {
-        console.log(x)
         cats[x.name] = { color: toHex(x.color), order: Object.keys(cats).length };
         catArr.push(cats[x.name]);
     }
@@ -240,7 +239,7 @@ exports.handler = async (event) => {
 }
 
 // uncomment this to run locally
-exports.handler();
+// exports.handler();
 
 // https://www.youtube.com/watch?v=aDqxCYRDQNI
 // https://www.youtube.com/watch?v=RfbUOglbuLc
