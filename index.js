@@ -7,6 +7,7 @@ const notion = new Client({ auth: process.env.NOTION_API_KEY });
 const databaseId = process.env.NOTION_DATABASE_ID;
 const pageId = process.env.NOTION_PAGE_ID;
 const numDays = 14;
+const order = ['Probability', 'STS', 'Databases', 'Data Analysis', 'Other'];
 
 const queryDatabase = async (databaseId, f) => {
     try {
@@ -212,13 +213,31 @@ const getCategories = async () => {
         database_id: databaseId
     }); 
 
-    let cats = {};
-    let catArr = [];
-
+    let temp = [];
     for (var x of res.properties.Category.select.options) {
-        cats[x.name] = { color: toHex(x.color), order: Object.keys(cats).length };
-        catArr.push(cats[x.name]);
+        temp.push(x.name);
     }
+
+    let catArr = [];
+    let cats = {};
+    // if our predefined order has the exact same categories as our data
+    if ([...order].sort().join('') == temp.sort().join('')) {
+        for (var i of [...Array(5).keys()]) {
+            for (var x of res.properties.Category.select.options) {
+                if (x.name == order[i]) {
+                    cats[x.name] = { color: toHex(x.color), order: Object.keys(cats).length, a: x.name };
+                    catArr.push(cats[x.name]);
+                }
+            }
+        }
+    } else {
+        for (var x of res.properties.Category.select.options) {
+            cats[x.name] = { color: toHex(x.color), order: Object.keys(cats).length };
+            catArr.push(cats[x.name]);
+        }
+    }
+
+    console.log(catArr);
     
     return { cats: cats, catArr: catArr };
 }
@@ -256,4 +275,4 @@ exports.handler = async (event) => {
 }
 
 // uncomment this to run locally
-// exports.handler();
+exports.handler();
