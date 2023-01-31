@@ -6,7 +6,7 @@ dotenv.config();
 const notion = new Client({ auth: process.env.NOTION_API_KEY });
 const databaseId = process.env.NOTION_DATABASE_ID;
 const pageId = process.env.NOTION_PAGE_ID;
-const numDays = 14;
+const numDays = 15;
 const order = ['Probability', 'STS', 'Databases', 'Data Analysis', 'Other'];
 
 const queryDatabase = async (databaseId, f) => {
@@ -170,7 +170,7 @@ const createChart = (sets, m) => {
             }
         }
     })
-    .setWidth(500)
+    .setWidth(600)
     .setHeight(150)
     .setBackgroundColor('transparent');
 
