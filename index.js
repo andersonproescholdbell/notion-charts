@@ -138,7 +138,7 @@ const createChart = (sets, maxHours, totalHours) => {
             },
             title: {
                 display: true,
-                text: `${h}/day next ${avgDays} days`,
+                text: `${h} hours / day, next ${avgDays} days`,
                 position: 'top',
                 fontStyle: 'normal',
                 padding: 2,
@@ -278,4 +278,4 @@ exports.handler = async (event) => {
 }
 
 // uncomment this to run locally
-exports.handler();
+// exports.handler();
