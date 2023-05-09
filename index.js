@@ -7,7 +7,7 @@ const notion = new Client({ auth: process.env.NOTION_API_KEY });
 const databaseId = process.env.NOTION_DATABASE_ID;
 const pageId = process.env.NOTION_PAGE_ID;
 const numDays = 15;
-const order = ['Probability', 'STS', 'Databases', 'Data Analysis', 'Other'];
+const avgDays = 7;
 
 const queryDatabase = async (databaseId, f) => {
     try {
@@ -55,7 +55,7 @@ const getChildBlocks = async (pageId) => {
 }
 
 const getDay = (d) => {
-    d.setUTCHours(d.getUTCHours() - 5);
+    d.setUTCHours(d.getUTCHours() - 4); // change to -5 after daylight savings is over
     d.setUTCHours(0, 0, 0, 0);
     return d;
 }
@@ -64,6 +64,7 @@ const calcWork = (data, cats) => {
     // place to store hours of work for the next numDays days
     let arrs = [];
     let total = Array(numDays).fill(0);
+    let totalHours = 0;
     
     for (var i = 0; i < Object.keys(cats).length; i++) {
         arrs.push(Array(numDays).fill(0));
@@ -91,10 +92,12 @@ const calcWork = (data, cats) => {
             // anything without a category gets put into "Other"
             arrs[(i.properties.Category.select) ? cats[i.properties.Category.select.name].order : cats['Other'].order][x] += hoursPerDay;
             total[x] += hoursPerDay;
+            
+            if (x < avgDays) totalHours += hoursPerDay;
         }
     }
 
-    return { arrs: arrs, max: Math.max(...total) };
+    return { arrs: arrs, max: Math.max(...total), totalHours: totalHours };
 }
 
 const getMonthDay = (day) => {
@@ -119,7 +122,9 @@ const makeLabel = () => {
     return arr;
 }
 
-const createChart = (sets, m) => {
+const createChart = (sets, maxHours, totalHours) => {
+    const m = Math.max(Math.ceil(maxHours/4)*4, 8);
+    const h = +(Math.round(totalHours/avgDays + "e+2") + "e-2");
     const myChart = new QuickChart();
     myChart.setConfig({
         type: 'bar',
@@ -130,6 +135,14 @@ const createChart = (sets, m) => {
         options: {
             legend: {
                 display: false
+            },
+            title: {
+                display: true,
+                text: `${h}/day next ${avgDays} days`,
+                position: 'top',
+                fontStyle: 'normal',
+                padding: 2,
+                fontSize: 10
             },
             layout: {
                 padding: {
@@ -159,7 +172,7 @@ const createChart = (sets, m) => {
                         ticks: {
                             min: 0,
                             max: m,
-                            stepSize: 1
+                            stepSize: 2
                         },
                         stacked: true
                     }
@@ -171,7 +184,7 @@ const createChart = (sets, m) => {
         }
     })
     .setWidth(600)
-    .setHeight(150)
+    .setHeight(170)
     .setBackgroundColor('transparent');
 
     return myChart.getUrl();
@@ -198,10 +211,15 @@ const replaceChart = async (id, url) => {
 
 function toHex(color) {
     var colors = {
-        "blue":"#28456c", 
         "default":"#373737",
+        "gray":"#5a5a5a",
+        "brown":"#603b2c",
+        "orange":"#854c1d",
+        "yellow":"#89632a",
         "green":"#2b593f",
+        "blue":"#28456c", 
         "purple":"#492f64",
+        "pink":"#69314c",
         "red":"#6e3630"
     };
 
@@ -213,31 +231,16 @@ const getCategories = async () => {
         database_id: databaseId
     }); 
 
-    let temp = [];
-    for (var x of res.properties.Category.select.options) {
-        temp.push(x.name);
-    }
-
     let catArr = [];
     let cats = {};
-    // if our predefined order has the exact same categories as our data
-    if ([...order].sort().join('') == temp.sort().join('')) {
-        for (var i of [...Array(5).keys()]) {
-            for (var x of res.properties.Category.select.options) {
-                if (x.name == order[i]) {
-                    cats[x.name] = { color: toHex(x.color), order: Object.keys(cats).length, a: x.name };
-                    catArr.push(cats[x.name]);
-                }
-            }
-        }
-    } else {
-        for (var x of res.properties.Category.select.options) {
-            cats[x.name] = { color: toHex(x.color), order: Object.keys(cats).length };
-            catArr.push(cats[x.name]);
-        }
+    for (var x of res.properties.Category.select.options) {
+        cats[x.name] = { color: toHex(x.color), order: Object.keys(cats).length };
+        catArr.push(cats[x.name]);
     }
 
-    console.log(catArr);
+    // add other category
+    cats["Other"] = { color: toHex("default"), order: Object.keys(cats).length };
+    catArr.push(cats["Other"]);
     
     return { cats: cats, catArr: catArr };
 }
@@ -263,7 +266,7 @@ exports.handler = async (event) => {
     const cats = await getCategories(data);
     const work = calcWork(data, cats.cats);
     const dataSets = createDataSets(work.arrs, cats.catArr);
-    const chartUrl = createChart(dataSets, Math.max(Math.ceil(work.max/4)*4, 4));
+    const chartUrl = createChart(dataSets, work.max, work.totalHours);
     const block = await getBlock(pageId);
 
     if (block.url != chartUrl) {
