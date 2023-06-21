@@ -6,16 +6,31 @@ dotenv.config();
 const notion = new Client({ auth: process.env.NOTION_API_KEY });
 const databaseId = process.env.NOTION_DATABASE_ID;
 const pageId = process.env.NOTION_PAGE_ID;
-const numDays = 15;
+const numDays = 22;
 const avgDays = 7;
+const chartHeight = 160;
+const chartWidth = 750;
 
 const queryDatabase = async (databaseId, f) => {
     try {
-        const response = await notion.databases.query({
+        var response = await notion.databases.query({
             database_id: databaseId,
             filter: f
-        });  
-        return response.results;
+        }); 
+
+        var all = response.results;
+
+        while (response['has_more']) {
+            response = await notion.databases.query({
+                database_id: databaseId,
+                start_cursor: response['next_cursor'],
+                filter: f
+            }); 
+            all = all.concat(response.results);
+        }
+
+        console.log(all.length)
+        return all;
     } catch (error){
         console.log(error.body);
     }
@@ -65,6 +80,10 @@ const calcWork = (data, cats) => {
     let arrs = [];
     let total = Array(numDays).fill(0);
     let totalHours = 0;
+
+    // for (var x of data) {
+    //     console.log(x.properties.Hours)
+    // }
     
     for (var i = 0; i < Object.keys(cats).length; i++) {
         arrs.push(Array(numDays).fill(0));
@@ -183,8 +202,8 @@ const createChart = (sets, maxHours, totalHours) => {
             }
         }
     })
-    .setWidth(600)
-    .setHeight(170)
+    .setWidth(chartWidth)
+    .setHeight(chartHeight)
     .setBackgroundColor('transparent');
 
     return myChart.getUrl();
@@ -260,7 +279,6 @@ const createDataSets = (arrs, cats) => {
     return datasets;
 }
 
-// can currently only handle there being under 100 items --> look into pagination to fix
 exports.handler = async (event) => {
     const data = await getData();
     const cats = await getCategories(data);
@@ -278,4 +296,4 @@ exports.handler = async (event) => {
 }
 
 // uncomment this to run locally
-// exports.handler();
+exports.handler();
