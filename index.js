@@ -80,41 +80,24 @@ const calcWork = (data, cats) => {
     let arrs = [];
     let total = Array(numDays).fill(0);
     let totalHours = 0;
-
-    // for (var x of data) {
-    //     console.log(x.properties.Hours)
-    // }
     
     for (var i = 0; i < Object.keys(cats).length; i++) {
         arrs.push(Array(numDays).fill(0));
     }
 
-    let today = getDay(new Date());
-
     // our data filter means we only get data where hours is filled out
     for (var i of data) {
-        // if there is no start date, start is assigned to today
-        let start = (i.properties.Start.date) ? new Date(i.properties.Start.date.start) : today;
-        // if there is no finish date, finish is assigned to the start day
-        let finish = (i.properties.Finish.date) ? new Date(i.properties.Finish.date.start) : start;
-    
-        // if start was before today make it today
-        if (today >= start) start = today;
-        // if finish was before today make it today
-        if (today >= finish) finish = today;
+        let days = i.properties.days.formula.number;
+        let hours = i.properties.Hours.number;
+
+        if (days < numDays) total[days] += hours;
+        if (days < avgDays) totalHours += hours;
         
-        let firstDay = Math.round( (start - today) / 86400000);
-        let days = Math.round( (finish - start) / 86400000 ) + 1;
-        let hoursPerDay = Math.round( (i.properties.Hours.number / days) * 100 ) / 100;
-        
-        for (var x = firstDay; x < firstDay+days && x < numDays; x++) {
-            // anything without a category gets put into "Other"
-            arrs[(i.properties.Category.select) ? cats[i.properties.Category.select.name].order : cats['Other'].order][x] += hoursPerDay;
-            total[x] += hoursPerDay;
-            
-            if (x < avgDays) totalHours += hoursPerDay;
-        }
+        // anything without a category gets put into "Other"
+        arrs[(i.properties.Category.select) ? cats[i.properties.Category.select.name].order : cats['Other'].order][days] += hours;        
     }
+
+    console.log(total)
 
     return { arrs: arrs, max: Math.max(...total), totalHours: totalHours };
 }
