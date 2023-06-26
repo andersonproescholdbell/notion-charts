@@ -81,7 +81,7 @@ const getDays = (d) => {
 
     if (diff <= 0) return 0;
 
-    return diff / (1000*60*60*24);
+    return Math.round(diff / (1000*60*60*24));
 }
 
 const calcWork = (data, cats) => {
