@@ -8,6 +8,7 @@ const databaseId = process.env.NOTION_DATABASE_ID;
 const pageId = process.env.NOTION_PAGE_ID;
 const numDays = 30;
 const avgDays = 7;
+const daylightSavingsOffset = 4; // change to -5 after time change
 const chartHeight = 160;
 const chartWidth = 1000;
 
@@ -69,15 +70,15 @@ const getChildBlocks = async (pageId) => {
     }
 }
 
-const getDays = (d) => {
-    let now = new Date();
-    now.setHours(0, 0, 0, 0);
+const setTime = (d) => {
+    d.setUTCHours(d.getUTCHours() - daylightSavingsOffset);
+    d.setUTCHours(0, 0, 0, 0);
+    return d;
+}
 
+const getDays = (now, d) => {
     let date = new Date(d);
-    date = new Date(date.getTime() - 72000000);
-    date.setDate(date.getDate() + 1);
-
-    let diff = date.getTime() - now.getTime();
+    let diff = date.getTime() - now;
 
     if (diff <= 0) return 0;
 
@@ -86,17 +87,19 @@ const getDays = (d) => {
 
 const calcWork = (data, cats) => {
     // place to store hours of work for the next numDays days
-    let arrs = [];
-    let total = Array(numDays).fill(0);
-    let totalHours = 0;
+    let arrs = [], total = Array(numDays).fill(0), totalHours = 0;
     
     for (var i = 0; i < Object.keys(cats).length; i++) {
         arrs.push(Array(numDays).fill(0));
     }
 
+    let now = new Date();
+    now = setTime(now);
+    now = now.getTime();
+
     // our data filter means we only get data where hours is filled out
     for (var i of data) {
-        let days = (i.properties.Date.date) ? getDays(i.properties.Date.date.start) : 0;
+        let days = (i.properties.Date.date) ? getDays(now, i.properties.Date.date.start) : 0;
 
         if (days < numDays) {
             let hours = i.properties.Hours.number;
@@ -114,15 +117,9 @@ const calcWork = (data, cats) => {
     return { arrs: arrs, max: Math.max(...total), totalHours: totalHours };
 }
 
-const getDay = (d) => {
-    d.setUTCHours(d.getUTCHours() - 4); // change to -5 after daylight savings is over
-    d.setUTCHours(0, 0, 0, 0);
-    return d;
-}
-
 const getMonthDay = (day) => {
-    let m = day.getMonth() + 1;
-    let d = day.getDate() + 1; // added + 1 even tho it doesn't make sense
+    let m = day.getUTCMonth() + 1;
+    let d = day.getUTCDate();
     return m + "/" + d;
 }
 
@@ -130,13 +127,16 @@ const makeLabel = () => {
     const w = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     let arr = [];
 
-    let day = getDay(new Date());
+    let day = new Date();
+    day = setTime(day);
+
     arr.push('Tdy\n' + getMonthDay(day));
-    day.setDate(day.getDate() + 1);
-    arr.push('Tmw\n' + getMonthDay(day))
+    day.setUTCDate(day.getUTCDate() + 1);
+    arr.push('Tmw\n' + getMonthDay(day));
+
     for (var i = 0; i < numDays-2; i++) {
-        day.setDate(day.getDate() + 1);
-        arr.push(w[day.getDay()] + '\n' + getMonthDay(day));
+        day.setUTCDate(day.getUTCDate() + 1);
+        arr.push(w[day.getUTCDay()] + '\n' + getMonthDay(day));
     }
 
     return arr;
