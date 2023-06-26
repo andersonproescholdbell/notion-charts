@@ -6,10 +6,10 @@ dotenv.config();
 const notion = new Client({ auth: process.env.NOTION_API_KEY });
 const databaseId = process.env.NOTION_DATABASE_ID;
 const pageId = process.env.NOTION_PAGE_ID;
-const numDays = 22;
+const numDays = 30;
 const avgDays = 7;
 const chartHeight = 160;
-const chartWidth = 750;
+const chartWidth = 1000;
 
 const queryDatabase = async (databaseId, f) => {
     try {
@@ -69,10 +69,19 @@ const getChildBlocks = async (pageId) => {
     }
 }
 
-const getDay = (d) => {
-    d.setUTCHours(d.getUTCHours() - 4); // change to -5 after daylight savings is over
-    d.setUTCHours(0, 0, 0, 0);
-    return d;
+const getDays = (d) => {
+    let now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    let date = new Date(d);
+    date = new Date(date.getTime() - 72000000);
+    date.setDate(date.getDate() + 1);
+
+    let diff = date.getTime() - now.getTime();
+
+    if (diff <= 0) return 0;
+
+    return diff / (1000*60*60*24);
 }
 
 const calcWork = (data, cats) => {
@@ -87,24 +96,33 @@ const calcWork = (data, cats) => {
 
     // our data filter means we only get data where hours is filled out
     for (var i of data) {
-        let days = i.properties.days.formula.number;
-        let hours = i.properties.Hours.number;
+        let days = (i.properties.Date.date) ? getDays(i.properties.Date.date.start) : 0;
 
-        if (days < numDays) total[days] += hours;
-        if (days < avgDays) totalHours += hours;
-        
-        // anything without a category gets put into "Other"
-        arrs[(i.properties.Category.select) ? cats[i.properties.Category.select.name].order : cats['Other'].order][days] += hours;        
-    }
+        if (days < numDays) {
+            let hours = i.properties.Hours.number;
 
-    console.log(total)
+            total[days] += hours;
+            if (days < avgDays) totalHours += hours;
+    
+            let category = i.properties.Category.select;
+            
+            // anything without a category gets put into "Other"
+            arrs[category ? cats[category.name].order : cats['Other'].order][days] += hours;     
+        }   
+    }       
 
     return { arrs: arrs, max: Math.max(...total), totalHours: totalHours };
 }
 
+const getDay = (d) => {
+    d.setUTCHours(d.getUTCHours() - 4); // change to -5 after daylight savings is over
+    d.setUTCHours(0, 0, 0, 0);
+    return d;
+}
+
 const getMonthDay = (day) => {
     let m = day.getMonth() + 1;
-    let d = day.getDate();
+    let d = day.getDate() + 1; // added + 1 even tho it doesn't make sense
     return m + "/" + d;
 }
 
@@ -112,7 +130,7 @@ const makeLabel = () => {
     const w = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     let arr = [];
 
-    let day = (getDay(new Date()));
+    let day = getDay(new Date());
     arr.push('Tdy\n' + getMonthDay(day));
     day.setDate(day.getDate() + 1);
     arr.push('Tmw\n' + getMonthDay(day))
