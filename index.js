@@ -91,16 +91,25 @@ const calcWork = (data, cats) => {
     now.setUTCHours(0, 0, 0, 0); // Set to midnight UTC for consistent comparison
     now = now.getTime();
 
+    console.log('Initial total array (should be all zeros):', total);
 
     // Process all tasks from database
-    for (var i of data) {
+    for (var [index, i] of data.entries()) {
+        // Log full properties for first task only
+        if (index === 0) {
+            console.log('=== FIRST TASK FULL PROPERTIES ===');
+            console.log('Available properties:', Object.keys(i.properties));
+            console.log('Full task structure:', JSON.stringify(i.properties, null, 2));
+            console.log('================================');
+        }
 
-        let dateString = (i.properties.Start && i.properties.Start.date) ? i.properties.Start.date.start : null;
+        let dateString = (i.properties.Date && i.properties.Date.date) ? i.properties.Date.date.start : null;
 
         let days = dateString ? getDays(now, dateString) : 0;
 
         if (days < numDays) {
             let hours = i.properties.Hours.number;
+            console.log(`Task with ${hours} hours assigned to day ${days} (${dateString || 'no date'})`);
 
             total[days] += hours;
             if (days < avgDays) totalHours += hours;
@@ -111,6 +120,8 @@ const calcWork = (data, cats) => {
             arrs[category ? cats[category.name].order : cats['Other'].order][days] += hours;
         }
     }
+
+    console.log('Final total array distribution:', total);
 
     return { arrs: arrs, max: Math.max(...total), totalHours: totalHours };
 }
