@@ -6,10 +6,10 @@ dotenv.config();
 const notion = new Client({ auth: process.env.NOTION_API_KEY });
 const databaseId = process.env.NOTION_DATABASE_ID;
 const pageId = process.env.NOTION_PAGE_ID;
-const numDays = 30;
+const numDays = 22;
 const avgDays = 7;
 const chartHeight = 160;
-const chartWidth = 1000;
+const chartWidth = 900;
 
 const queryDatabase = async (databaseId, f) => {
     try {
@@ -178,14 +178,11 @@ const createChart = (sets, maxHours, totalHours, totalPoints30Days) => {
             },
             title: {
                 display: true,
-                text: [
-                    `${h} points / day, next ${avgDays} days`,
-                    `${h2} points total, next ${totalDays} days`
-                ],
+                text: `${h} points / day, next ${avgDays} days || ${h2} points total, next ${totalDays} days`,
                 position: 'top',
                 fontStyle: 'normal',
-                // padding: { top: 4, bottom: 4, left: 20 },
-                fontSize: 12
+                padding: 2,
+                fontSize: 10
             },
             layout: {
                 padding: {
@@ -210,7 +207,8 @@ const createChart = (sets, maxHours, totalHours, totalPoints30Days) => {
                 yAxes: [
                     {
                         gridLines: {
-                            color: 'rgba(0, 0, 0, 0.7)'
+                            color: 'rgba(0, 0, 0, 0.7)',
+                            drawOnChartArea: false
                         },
                         ticks: {
                             min: 0,
