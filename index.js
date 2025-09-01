@@ -46,7 +46,7 @@ const getData = async () => {
                 },
             },
             {
-                property: 'Hours',
+                property: 'Points',
                 number: {
                     greater_than: 0,
                 },
@@ -70,10 +70,13 @@ const getChildBlocks = async (pageId) => {
 }
 
 
-const getDays = (now_utc_timestamp, date_string) => {
-    // A date_string from Notion (e.g., '2025-09-05') is parsed by new Date() as midnight UTC.
-    const taskDate = new Date(date_string);
-    const diff = taskDate.getTime() - now_utc_timestamp;
+const getDays = (now_eastern_timestamp, date_string) => {
+    // Parse date string and convert to Eastern Time midnight
+    const taskDate = new Date(date_string + "T00:00:00");
+    const easternTaskDate = new Date(taskDate.toLocaleString("en-US", { timeZone: "America/New_York" }));
+    easternTaskDate.setHours(0, 0, 0, 0);
+
+    const diff = easternTaskDate.getTime() - now_eastern_timestamp;
     const days = diff < 0 ? 0 : Math.round(diff / (1000 * 60 * 60 * 24));
 
     return days;
@@ -81,14 +84,16 @@ const getDays = (now_utc_timestamp, date_string) => {
 
 const calcWork = (data, cats) => {
     // place to store hours of work for the next numDays days
-    let arrs = [], total = Array(numDays).fill(0), totalHours = 0;
+    let arrs = [], total = Array(numDays).fill(0), totalHours = 0, totalPoints30Days = 0;
 
     for (var i = 0; i < Object.keys(cats).length; i++) {
         arrs.push(Array(numDays).fill(0));
     }
 
     let now = new Date();
-    now.setUTCHours(0, 0, 0, 0); // Set to midnight UTC for consistent comparison
+    // Convert to Eastern Time and set to midnight
+    now = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+    now.setHours(0, 0, 0, 0);
     now = now.getTime();
 
     console.log('Initial total array (should be all zeros):', total);
@@ -108,27 +113,28 @@ const calcWork = (data, cats) => {
         let days = dateString ? getDays(now, dateString) : 0;
 
         if (days < numDays) {
-            let hours = i.properties.Hours.number;
-            console.log(`Task with ${hours} hours assigned to day ${days} (${dateString || 'no date'})`);
+            let points = i.properties.Points.number;
+            console.log(`Task with ${points} points assigned to day ${days} (${dateString || 'no date'})`);
 
-            total[days] += hours;
-            if (days < avgDays) totalHours += hours;
+            total[days] += points;
+            if (days < avgDays) totalHours += points;
+            totalPoints30Days += points; // Add to 30-day total
 
             let category = i.properties.Category.select;
 
             // anything without a category gets put into "Other"
-            arrs[category ? cats[category.name].order : cats['Other'].order][days] += hours;
+            arrs[category ? cats[category.name].order : cats['Other'].order][days] += points;
         }
     }
 
     console.log('Final total array distribution:', total);
 
-    return { arrs: arrs, max: Math.max(...total), totalHours: totalHours };
+    return { arrs: arrs, max: Math.max(...total), totalHours: totalHours, totalPoints30Days: totalPoints30Days };
 }
 
 const getMonthDay = (day) => {
-    let m = day.getUTCMonth() + 1;
-    let d = day.getUTCDate();
+    let m = day.getMonth() + 1;
+    let d = day.getDate();
     return m + "/" + d;
 }
 
@@ -137,25 +143,30 @@ const makeLabel = () => {
     let arr = [];
 
     let day = new Date();
-    day.setUTCHours(0, 0, 0, 0); // Set to midnight UTC for consistency
+    // Convert to Eastern Time and set to midnight
+    day = new Date(day.toLocaleString("en-US", { timeZone: "America/New_York" }));
+    day.setHours(0, 0, 0, 0);
 
     arr.push('Tdy\n' + getMonthDay(day));
-    day.setUTCDate(day.getUTCDate() + 1);
+    day.setDate(day.getDate() + 1);
     arr.push('Tmw\n' + getMonthDay(day));
 
     for (var i = 0; i < numDays - 2; i++) {
-        day.setUTCDate(day.getUTCDate() + 1);
-        arr.push(w[day.getUTCDay()] + '\n' + getMonthDay(day));
+        day.setDate(day.getDate() + 1);
+        arr.push(w[day.getDay()] + '\n' + getMonthDay(day));
     }
 
     return arr;
 }
 
-const createChart = (sets, maxHours, totalHours) => {
+const createChart = (sets, maxHours, totalHours, totalPoints30Days) => {
     const m = Math.max(Math.ceil(maxHours / 4) * 4, 8);
-    const h = +(Math.round(totalHours / avgDays + "e+2") + "e-2");
+    const h = Math.round(totalHours / avgDays, 2);
+    const h2 = Math.round(totalPoints30Days, 2);
+    const totalDays = numDays; // 30 days
     const myChart = new QuickChart();
     myChart.setConfig({
+        version: '2.9.4',
         type: 'bar',
         data: {
             labels: makeLabel(),
@@ -167,11 +178,14 @@ const createChart = (sets, maxHours, totalHours) => {
             },
             title: {
                 display: true,
-                text: `${h} hours / day, next ${avgDays} days`,
+                text: [
+                    `${h} points / day, next ${avgDays} days`,
+                    `${h2} points total, next ${totalDays} days`
+                ],
                 position: 'top',
                 fontStyle: 'normal',
-                padding: 2,
-                fontSize: 10
+                // padding: { top: 4, bottom: 4, left: 20 },
+                fontSize: 12
             },
             layout: {
                 padding: {
@@ -294,7 +308,7 @@ exports.handler = async (event) => {
     const cats = await getCategories(data);
     const work = calcWork(data, cats.cats);
     const dataSets = createDataSets(work.arrs, cats.catArr);
-    const chartUrl = createChart(dataSets, work.max, work.totalHours);
+    const chartUrl = createChart(dataSets, work.max, work.totalHours, work.totalPoints30Days);
     console.log(chartUrl);
     const block = await getBlock(pageId);
 
