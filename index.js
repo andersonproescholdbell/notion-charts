@@ -8,7 +8,6 @@ const databaseId = process.env.NOTION_DATABASE_ID;
 const pageId = process.env.NOTION_PAGE_ID;
 const numDays = 30;
 const avgDays = 7;
-const daylightSavingsOffset = 4; // change to -5 after time change
 const chartHeight = 160;
 const chartWidth = 1000;
 
@@ -16,8 +15,8 @@ const queryDatabase = async (databaseId, f) => {
     try {
         var response = await notion.databases.query({
             database_id: databaseId,
-            filter: f
-        }); 
+            ...(f && { filter: f })
+        });
 
         var all = response.results;
 
@@ -25,14 +24,14 @@ const queryDatabase = async (databaseId, f) => {
             response = await notion.databases.query({
                 database_id: databaseId,
                 start_cursor: response['next_cursor'],
-                filter: f
-            }); 
+                ...(f && { filter: f })
+            });
             all = all.concat(response.results);
         }
 
         console.log(all.length)
         return all;
-    } catch (error){
+    } catch (error) {
         console.log(error.body);
     }
 }
@@ -40,20 +39,20 @@ const queryDatabase = async (databaseId, f) => {
 const getData = async () => {
     const filter = {
         and: [
-            { 
-                property: "Completed",
-                checkbox: {
-                    equals: false
-                }
+            {
+                property: 'Completed',
+                date: {
+                    is_empty: true,
+                },
             },
             {
-                property: "Hours",
+                property: 'Hours',
                 number: {
-                    greater_than: 0
-                }
-            }
-        ]
-    };
+                    greater_than: 0,
+                },
+            },
+        ],
+    }
 
     return await queryDatabase(databaseId, filter);
 }
@@ -63,56 +62,55 @@ const getChildBlocks = async (pageId) => {
         const response = await notion.blocks.children.list({
             block_id: pageId,
             page_size: 50,
-          });
+        });
         return response.results;
-    } catch (error){
+    } catch (error) {
         console.log(error.body);
     }
 }
 
-const setTime = (d) => {
-    d.setUTCHours(d.getUTCHours() - daylightSavingsOffset);
-    d.setUTCHours(0, 0, 0, 0);
-    return d;
-}
 
-const getDays = (now, d) => {
-    let date = new Date(d);
-    let diff = date.getTime() - now;
+const getDays = (now_utc_timestamp, date_string) => {
+    // A date_string from Notion (e.g., '2025-09-05') is parsed by new Date() as midnight UTC.
+    const taskDate = new Date(date_string);
+    const diff = taskDate.getTime() - now_utc_timestamp;
+    const days = diff < 0 ? 0 : Math.round(diff / (1000 * 60 * 60 * 24));
 
-    if (diff <= 0) return 0;
-
-    return Math.round(diff / (1000*60*60*24));
+    return days;
 }
 
 const calcWork = (data, cats) => {
     // place to store hours of work for the next numDays days
     let arrs = [], total = Array(numDays).fill(0), totalHours = 0;
-    
+
     for (var i = 0; i < Object.keys(cats).length; i++) {
         arrs.push(Array(numDays).fill(0));
     }
 
     let now = new Date();
-    now = setTime(now);
+    now.setUTCHours(0, 0, 0, 0); // Set to midnight UTC for consistent comparison
     now = now.getTime();
 
-    // our data filter means we only get data where hours is filled out
+
+    // Process all tasks from database
     for (var i of data) {
-        let days = (i.properties.Date.date) ? getDays(now, i.properties.Date.date.start) : 0;
+
+        let dateString = (i.properties.Start && i.properties.Start.date) ? i.properties.Start.date.start : null;
+
+        let days = dateString ? getDays(now, dateString) : 0;
 
         if (days < numDays) {
             let hours = i.properties.Hours.number;
 
             total[days] += hours;
             if (days < avgDays) totalHours += hours;
-    
+
             let category = i.properties.Category.select;
-            
+
             // anything without a category gets put into "Other"
-            arrs[category ? cats[category.name].order : cats['Other'].order][days] += hours;     
-        }   
-    }       
+            arrs[category ? cats[category.name].order : cats['Other'].order][days] += hours;
+        }
+    }
 
     return { arrs: arrs, max: Math.max(...total), totalHours: totalHours };
 }
@@ -128,13 +126,13 @@ const makeLabel = () => {
     let arr = [];
 
     let day = new Date();
-    day = setTime(day);
+    day.setUTCHours(0, 0, 0, 0); // Set to midnight UTC for consistency
 
     arr.push('Tdy\n' + getMonthDay(day));
     day.setUTCDate(day.getUTCDate() + 1);
     arr.push('Tmw\n' + getMonthDay(day));
 
-    for (var i = 0; i < numDays-2; i++) {
+    for (var i = 0; i < numDays - 2; i++) {
         day.setUTCDate(day.getUTCDate() + 1);
         arr.push(w[day.getUTCDay()] + '\n' + getMonthDay(day));
     }
@@ -143,13 +141,13 @@ const makeLabel = () => {
 }
 
 const createChart = (sets, maxHours, totalHours) => {
-    const m = Math.max(Math.ceil(maxHours/4)*4, 8);
-    const h = +(Math.round(totalHours/avgDays + "e+2") + "e-2");
+    const m = Math.max(Math.ceil(maxHours / 4) * 4, 8);
+    const h = +(Math.round(totalHours / avgDays + "e+2") + "e-2");
     const myChart = new QuickChart();
     myChart.setConfig({
         type: 'bar',
-        data: { 
-            labels: makeLabel(), 
+        data: {
+            labels: makeLabel(),
             datasets: sets
         },
         options: {
@@ -171,7 +169,7 @@ const createChart = (sets, maxHours, totalHours) => {
             },
             scales: {
                 xAxes: [
-                    {   
+                    {
                         gridLines: {
                             color: 'rgba(0, 0, 0, 0.7)'
                         },
@@ -199,31 +197,31 @@ const createChart = (sets, maxHours, totalHours) => {
                 ]
             },
             plugins: {
-              roundedBars: true 
+                roundedBars: true
             }
         }
     })
-    .setWidth(chartWidth)
-    .setHeight(chartHeight)
-    .setBackgroundColor('transparent');
+        .setWidth(chartWidth)
+        .setHeight(chartHeight)
+        .setBackgroundColor('transparent');
 
     return myChart.getUrl();
 }
 
 const getBlock = async (pageId) => {
     const blocks = await getChildBlocks(pageId);
-    
+
     for (var b of blocks) {
         if (b.type == 'embed') {
-            return {id: b.id, url: b.embed.url};
+            return { id: b.id, url: b.embed.url };
         }
     }
 }
 
-const replaceChart = async (id, url) => {  
+const replaceChart = async (id, url) => {
     return await notion.blocks.update({
         block_id: id,
-        embed : {
+        embed: {
             url: url
         }
     });
@@ -231,16 +229,16 @@ const replaceChart = async (id, url) => {
 
 function toHex(color) {
     var colors = {
-        "default":"#373737",
-        "gray":"#5a5a5a",
-        "brown":"#603b2c",
-        "orange":"#854c1d",
-        "yellow":"#89632a",
-        "green":"#2b593f",
-        "blue":"#28456c", 
-        "purple":"#492f64",
-        "pink":"#69314c",
-        "red":"#6e3630"
+        "default": "#373737",
+        "gray": "#5a5a5a",
+        "brown": "#603b2c",
+        "orange": "#854c1d",
+        "yellow": "#89632a",
+        "green": "#2b593f",
+        "blue": "#28456c",
+        "purple": "#492f64",
+        "pink": "#69314c",
+        "red": "#6e3630"
     };
 
     return colors[color];
@@ -249,7 +247,7 @@ function toHex(color) {
 const getCategories = async () => {
     const res = await notion.databases.retrieve({
         database_id: databaseId
-    }); 
+    });
 
     let catArr = [];
     let cats = {};
@@ -261,7 +259,7 @@ const getCategories = async () => {
     // add other category
     cats["Other"] = { color: toHex("default"), order: Object.keys(cats).length };
     catArr.push(cats["Other"]);
-    
+
     return { cats: cats, catArr: catArr };
 }
 
@@ -286,6 +284,7 @@ exports.handler = async (event) => {
     const work = calcWork(data, cats.cats);
     const dataSets = createDataSets(work.arrs, cats.catArr);
     const chartUrl = createChart(dataSets, work.max, work.totalHours);
+    console.log(chartUrl);
     const block = await getBlock(pageId);
 
     if (block.url != chartUrl) {
