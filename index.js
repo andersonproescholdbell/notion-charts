@@ -98,15 +98,18 @@ const calcWork = (data, cats) => {
 
     console.log('Initial total array (should be all zeros):', total);
 
+    // Array to collect task info for sorted logging
+    let tasksForLogging = [];
+
     // Process all tasks from database
     for (var [index, i] of data.entries()) {
         // Log full properties for first task only
-        if (index === 0) {
-            console.log('=== FIRST TASK FULL PROPERTIES ===');
-            console.log('Available properties:', Object.keys(i.properties));
-            console.log('Full task structure:', JSON.stringify(i.properties, null, 2));
-            console.log('================================');
-        }
+        // if (index === 0) {
+        //     console.log('=== FIRST TASK FULL PROPERTIES ===');
+        //     console.log('Available properties:', Object.keys(i.properties));
+        //     console.log('Full task structure:', JSON.stringify(i.properties, null, 2));
+        //     console.log('================================');
+        // }
 
         let dateString = (i.properties.Date && i.properties.Date.date) ? i.properties.Date.date.start : null;
 
@@ -114,7 +117,15 @@ const calcWork = (data, cats) => {
 
         if (days < numDays) {
             let points = i.properties.Points.number;
-            console.log(`Task with ${points} points assigned to day ${days} (${dateString || 'no date'})`);
+            let taskName = i.properties.Name?.title?.[0]?.plain_text || 'Untitled Task';
+
+            // Collect task info for sorted logging
+            tasksForLogging.push({
+                name: taskName,
+                points: points,
+                days: days,
+                dateString: dateString
+            });
 
             total[days] += points;
             if (days < avgDays) totalHours += points;
@@ -127,7 +138,24 @@ const calcWork = (data, cats) => {
         }
     }
 
+    // Sort tasks by days (soonest to latest) and log them
+    tasksForLogging.sort((a, b) => a.days - b.days);
+    console.log('\n=== TASKS SORTED BY DATE (SOONEST TO LATEST) ===');
+    for (let task of tasksForLogging) {
+        console.log(`Task: "${task.name}" - ${task.points} hours assigned to day ${task.days} (${task.dateString || 'no date'})`);
+    }
+    console.log('===============================================\n');
+
     console.log('Final total array distribution:', total);
+
+    // Log current time to confirm timezone is correct
+    const currentTime = new Date();
+    const easternTime = new Date(currentTime.toLocaleString("en-US", { timeZone: "America/New_York" }));
+    console.log('\n=== TIMEZONE VERIFICATION ===');
+    console.log('Current time (system):', currentTime.toString());
+    console.log('Current time (Eastern):', easternTime.toString());
+    console.log('Midnight Eastern timestamp used for calculations:', new Date(now).toString());
+    console.log('============================\n');
 
     return { arrs: arrs, max: Math.max(...total), totalHours: totalHours, totalPoints30Days: totalPoints30Days };
 }
@@ -307,7 +335,7 @@ exports.handler = async (event) => {
     const work = calcWork(data, cats.cats);
     const dataSets = createDataSets(work.arrs, cats.catArr);
     const chartUrl = createChart(dataSets, work.max, work.totalHours, work.totalPoints30Days);
-    console.log(chartUrl);
+    // console.log(chartUrl);
     const block = await getBlock(pageId);
 
     if (block.url != chartUrl) {
@@ -319,4 +347,5 @@ exports.handler = async (event) => {
 }
 
 // uncomment this to run locally
-exports.handler();
+// BEFORE DEPLOYING MAKE SURE TO COMMENT THIS OUT
+// exports.handler();
