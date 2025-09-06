@@ -77,7 +77,7 @@ const getDays = (now_eastern_timestamp, date_string) => {
 
     const diff = taskDate.getTime() - now_eastern_timestamp;
     // Use Math.floor to ensure we get the number of full days.
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24)) + 1;
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
     return days < 0 ? 0 : days;
 }
