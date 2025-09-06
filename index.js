@@ -8,10 +8,10 @@ const databaseId = process.env.NOTION_DATABASE_ID;
 const pageId = process.env.NOTION_PAGE_ID;
 
 const shortPeriod = 7;
-const longPeriod = 28;
+const longPeriod = 25;
 
 const chartHeight = 160;
-const chartWidth = 900;
+const chartWidth = 920;
 
 const queryDatabase = async (databaseId, f) => {
     try {
@@ -198,7 +198,7 @@ const createChart = (sets, maxHours, totalHours, totalPoints) => {
             },
             title: {
                 display: true,
-                text: `${h} points/day this week, ${h2} next ${longPeriod} days`,
+                text: `${h} points/day next ${shortPeriod} days, ${h2} points/day next ${longPeriod} days`,
                 position: 'top',
                 fontStyle: 'normal',
                 padding: 2,
