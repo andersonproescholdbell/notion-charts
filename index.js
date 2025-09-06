@@ -29,7 +29,6 @@ const queryDatabase = async (databaseId, f) => {
             all = all.concat(response.results);
         }
 
-        console.log(all.length)
         return all;
     } catch (error) {
         console.log(error.body);
@@ -71,15 +70,14 @@ const getChildBlocks = async (pageId) => {
 
 
 const getDays = (now_eastern_timestamp, date_string) => {
-    // Parse date string and convert to Eastern Time midnight
-    const taskDate = new Date(date_string + "T00:00:00");
-    const easternTaskDate = new Date(taskDate.toLocaleString("en-US", { timeZone: "America/New_York" }));
-    easternTaskDate.setHours(0, 0, 0, 0);
+    // Notion date strings are 'YYYY-MM-DD'. new Date() parses this as midnight UTC.
+    const taskDate = new Date(date_string);
 
-    const diff = easternTaskDate.getTime() - now_eastern_timestamp;
-    const days = diff < 0 ? 0 : Math.round(diff / (1000 * 60 * 60 * 24));
+    const diff = taskDate.getTime() - now_eastern_timestamp;
+    // Use Math.floor to ensure we get the number of full days.
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24)) + 1;
 
-    return days;
+    return days < 0 ? 0 : days;
 }
 
 const calcWork = (data, cats) => {
@@ -90,13 +88,12 @@ const calcWork = (data, cats) => {
         arrs.push(Array(numDays).fill(0));
     }
 
-    let now = new Date();
-    // Convert to Eastern Time and set to midnight
-    now = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
-    now.setHours(0, 0, 0, 0);
-    now = now.getTime();
-
-    console.log('Initial total array (should be all zeros):', total);
+    // Create a date string for the current date in the target timezone, e.g., "9/5/2025"
+    const easternDateString = new Date().toLocaleDateString('en-US', {
+        timeZone: 'America/New_York',
+    });
+    // Create a new Date object representing midnight at the start of that day.
+    let now = new Date(easternDateString).getTime();
 
     // Array to collect task info for sorted logging
     let tasksForLogging = [];
@@ -170,10 +167,12 @@ const makeLabel = () => {
     const w = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     let arr = [];
 
-    let day = new Date();
-    // Convert to Eastern Time and set to midnight
-    day = new Date(day.toLocaleString("en-US", { timeZone: "America/New_York" }));
-    day.setHours(0, 0, 0, 0);
+    // Create a date string for the current date in the target timezone, e.g., "9/5/2025"
+    const easternDateString = new Date().toLocaleDateString('en-US', {
+        timeZone: 'America/New_York',
+    });
+    // Create a new Date object representing midnight at the start of that day.
+    let day = new Date(easternDateString);
 
     arr.push('Tdy\n' + getMonthDay(day));
     day.setDate(day.getDate() + 1);
@@ -335,7 +334,7 @@ exports.handler = async (event) => {
     const work = calcWork(data, cats.cats);
     const dataSets = createDataSets(work.arrs, cats.catArr);
     const chartUrl = createChart(dataSets, work.max, work.totalHours, work.totalPoints30Days);
-    // console.log(chartUrl);
+    console.log(chartUrl);
     const block = await getBlock(pageId);
 
     if (block.url != chartUrl) {
@@ -348,4 +347,4 @@ exports.handler = async (event) => {
 
 // uncomment this to run locally
 // BEFORE DEPLOYING MAKE SURE TO COMMENT THIS OUT
-// exports.handler();
+exports.handler();
